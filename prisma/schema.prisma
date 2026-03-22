@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChangeAction {
+  CREATE
+  UPDATE
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model Users {
+  Id       Int      @id @default(autoincrement())
+  Username String
+  Email    String
+  Password String
+  Role     Role     @default(USER)
+  Created  DateTime @default(now())
+  Updated  DateTime @updatedAt()
+
+  UserSession UserSessions[]
+  History     History[]
+  Url         Urls[]
+
+  @@unique([Email, Password])
+  @@index([Username, Email])
+}
+
+model UserSessions {
+  Id           String   @id @default(uuid())
+  UserId       Int
+  RefreshToken String
+  Expiration   DateTime
+  Created      DateTime @default(now())
+  Updated      DateTime @updatedAt()
+
+  User Users @relation(fields: [UserId], references: [Id], onDelete: Cascade)
+}
+
+model Urls {
+  Id        Int      @id @default(autoincrement())
+  UserId    Int
+  LongUrl   String
+  ShortUrl  String?
+  IsActive  Boolean?
+  Clicks    Int?     @default(0)
+  ExpiresAt DateTime
+  Created   DateTime @default(now())
+  Updated   DateTime @updatedAt
+
+  CreatedBy Users       @relation(fields: [UserId], references: [Id], onDelete: Cascade)
+  ClickLog  ClickLogs[]
+  History   History[]
+}
+
+model History {
+  Id              Int          @id @default(autoincrement())
+  ChangedById     Int
+  UrlId           Int
+  Action          ChangeAction
+  PreviousLongUrl String?
+  NewLongUrl      String
+  changedAt       DateTime     @default(now())
+
+  ChangedBy Users @relation(fields: [ChangedById], references: [Id])
+  Url       Urls  @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
+}
+
+model ClickLogs {
+  Id        Int     @id @default(autoincrement())
+  UrlId     Int
+  IpAddress String?
+  UserAgent String?
+
+  Created DateTime @default(now())
+
+  Url Urls @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
+}

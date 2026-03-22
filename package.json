@@ -1,0 +1,42 @@
+{
+    "name": "urlshortner",
+    "version": "1.0.0",
+    "description": "",
+    "main": "./src/index.js",
+    "scripts": {
+        "server": "tsx watch src/index.ts",
+        "build": "tsc",
+        "prisma:generate": "prisma generate",
+        "prisma:migrate:dev": "prisma migrate dev"
+    },
+    "keywords": [],
+    "author": "",
+    "type": "module",
+    "license": "ISC",
+    "dependencies": {
+        "@prisma/client": "^6.11.1",
+        "bcrypt": "^6.0.0",
+        "date-fns": "^4.1.0",
+        "express": "^5.2.1",
+        "express-async-handler": "^1.2.0",
+        "express-useragent": "^2.1.0",
+        "humps": "^2.0.1",
+        "jsonwebtoken": "^9.0.3",
+        "nanoid": "^5.1.7",
+        "prisma": "^6.11.1",
+        "uuid": "^13.0.0"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^6.0.0",
+        "@types/date-fns": "^2.5.3",
+        "@types/express": "^5.0.6",
+        "@types/humps": "^2.0.6",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^25.5.0",
+        "dotenv": "^17.3.1",
+        "nodemon": "^3.1.14",
+        "ts-node": "^10.9.2",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3"
+    }
+}
