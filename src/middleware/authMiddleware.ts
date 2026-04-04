@@ -17,7 +17,7 @@ import {
     kUsernameStoreKey,
     kUserRoleStoreKey,
     kUserEmailStoreKey,
-} from "../constans/index.js";
+} from "../constants/index.js";
 import { isAfter, toDate } from "date-fns";
 export function v1AuthMiddleware() {
     return asyncHandler(
