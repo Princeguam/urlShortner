@@ -4,6 +4,9 @@ import {
     systemResponse,
     prismaClient,
     generateJwtToken,
+    decodeJwtToken,
+    sendWelcomeEmail,
+    sendMailVerificationEmail,
 } from "../../../utilities/index.js";
 import {
     HandleServerError,
@@ -13,12 +16,17 @@ import {
     kDefaultSaltRounds,
     kDefaultAccessTokenExpirationIn,
     kDefaultRefreshTokenExpirationIn,
-} from "../../../constans/index.js";
+    kUserIdStoreKey,
+    kUserEmailStoreKey,
+    kDefaultRateLimitMaxRequest,
+    kDefaultWindowSeconds,
+} from "../../../constants/index.js";
 import { hash } from "bcrypt";
 import { $Enums } from "../../../../generated/prisma/browser.js";
 import * as uuid from "uuid";
-import { addDays, isAfter } from "date-fns";
+import { addDays, addMinutes, isAfter } from "date-fns";
 import * as humps from "humps";
+import { rateLimiter } from "../../../middleware/rateLimitter.js";
 
 const SignUpRoute = express.Router();
 
@@ -121,6 +129,7 @@ SignUpRoute.post(
             select: {
                 Id: true,
                 Role: true,
+                EmailVerified: true,
             },
         });
 
@@ -157,6 +166,25 @@ SignUpRoute.post(
             },
         });
 
+        //EMAIL VERIFICATION SENDING
+        let emailVerificationToken = uuid.v4();
+        let emailTokenExpiration = addMinutes(now, 15);
+
+        await prismaClient.userToken.create({
+            data: {
+                UserId: user.Id,
+                Token: emailVerificationToken,
+                Expiration: emailTokenExpiration,
+                Type: $Enums.TokenType.EmailVerification,
+            },
+        });
+
+        sendMailVerificationEmail(
+            body.email,
+            body.username,
+            emailVerificationToken,
+        );
+
         res.status(200).json(
             systemResponse(
                 true,
@@ -169,6 +197,96 @@ SignUpRoute.post(
                 },
                 undefined,
             ),
+        );
+    }),
+);
+
+SignUpRoute.get(
+    "/verify",
+    rateLimiter(kDefaultRateLimitMaxRequest - 95, kDefaultWindowSeconds - 1800),
+    asyncHandler(async (req: Request, res: Response) => {
+        let token = String(req.query.token);
+        let now = new Date();
+
+        let user = await prismaClient.userToken.findUnique({
+            where: {
+                Token: token,
+            },
+            select: {
+                Id: true,
+                UserId: true,
+                Expiration: true,
+                Type: true,
+                UsedAt: true,
+                User: {
+                    select: {
+                        EmailVerified: true,
+                        Email: true,
+                        Username: true,
+                    },
+                },
+            },
+        });
+
+        if (!user) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.UserUnavailable,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        if (user.UsedAt != null) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.VerificationLinkExpired,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        if (isAfter(now, user.Expiration)) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.VerificationLinkExpired,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+        if (user.User.EmailVerified === true) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.EmailAlreadyVerfified,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        await prismaClient.userToken.update({
+            where: {
+                Token: token,
+                UserId: user.UserId,
+            },
+            data: {
+                UsedAt: new Date(),
+                User: {
+                    update: {
+                        data: {
+                            EmailVerified: true,
+                        },
+                    },
+                },
+            },
+        });
+
+        sendWelcomeEmail(user.User.Email, user.User.Username);
+        res.status(200).json(
+            systemResponse(true, kDefaultSuccessMessage, null, undefined),
         );
     }),
 );
