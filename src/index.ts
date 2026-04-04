@@ -1,11 +1,11 @@
+import "dotenv/config";
+import "./utilities/redis.js";
 import express, { type Request, type Response } from "express";
-import * as dotenv from "dotenv";
 import V1Route from "./routes/index.js";
 import { requestTempStore } from "./middleware/requestTempStore.js";
 import { userAgent } from "./middleware/userAgent.js";
 
 const app = express();
-dotenv.config();
 app.use(express.json());
 app.use(userAgent());
 app.use(requestTempStore());
