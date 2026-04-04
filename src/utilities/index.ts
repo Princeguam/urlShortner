@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { BASE62 } from "../constans/index.js";
+import { BASE62 } from "../constants/index.js";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "MY SECRET";
 
@@ -63,3 +63,4 @@ export function cleanUrl(url: string) {
 }
 export * from "./sendResponse.js";
 export * from "./prismaClient.js";
+export * from "./email.js";
