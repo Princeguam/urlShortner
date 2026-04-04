@@ -24,21 +24,67 @@ enum Role {
   USER
 }
 
-model Users {
-  Id       Int      @id @default(autoincrement())
-  Username String
-  Email    String
-  Password String
-  Role     Role     @default(USER)
-  Created  DateTime @default(now())
-  Updated  DateTime @updatedAt()
+enum TokenType {
+  EmailVerification
+  PasswordReset
+}
 
-  UserSession UserSessions[]
-  History     History[]
-  Url         Urls[]
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum TransactionStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+}
+
+enum PlanType {
+  Free
+  Basic
+  Pro
+}
+
+enum BillingCycle {
+  Monthly
+  Annually
+}
+
+model Users {
+  Id            Int      @id @default(autoincrement())
+  Username      String
+  Email         String
+  Password      String
+  Role          Role     @default(USER)
+  Created       DateTime @default(now())
+  Updated       DateTime @updatedAt()
+  EmailVerified Boolean  @default(false)
+
+  UserSession  UserSessions[]
+  History      History[]
+  Url          Urls[]
+  UserToken    UserToken[]
+  Payment      Payments[]
+  Subscription Subscription[]
 
   @@unique([Email, Password])
   @@index([Username, Email])
+}
+
+model UserToken {
+  Id         Int       @id @default(autoincrement())
+  UserId     Int
+  Token      String    @unique
+  Expiration DateTime
+  Type       TokenType
+  UsedAt     DateTime?
+  Created    DateTime  @default(now())
+  Updated    DateTime  @updatedAt
+
+  User Users @relation(fields: [UserId], references: [Id], onDelete: Cascade)
 }
 
 model UserSessions {
@@ -72,7 +118,7 @@ model History {
   Id              Int          @id @default(autoincrement())
   ChangedById     Int
   UrlId           Int
-  Action          ChangeAction
+  Action          ChangeAction @default(UPDATE)
   PreviousLongUrl String?
   NewLongUrl      String
   changedAt       DateTime     @default(now())
@@ -90,4 +136,57 @@ model ClickLogs {
   Created DateTime @default(now())
 
   Url Urls @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
+}
+
+model Plan {
+  Id          String   @id @default(uuid())
+  Name        PlanType @unique
+  Price       Decimal // monthly price
+  AnnualPrice Decimal? // discounted annual price
+  MaxUrls     Int? // how many short urls allowed
+  MaxClicks   Int? // click limit per month
+  CustomSlug  Boolean? @default(false) // custom short codes
+  Analytics   Boolean  @default(false) // access to click analytics
+  Created     DateTime @default(now())
+  Updated     DateTime @updatedAt
+
+  Subscriptions Subscription[]
+}
+
+model Subscription {
+  Id           String       @id @default(uuid())
+  UserId       Int
+  PlanId       String
+  BillingCycle BillingCycle
+  IsActive     Boolean      @default(false)
+  StartDate    DateTime?
+  EndDate      DateTime? // null = active until cancelled
+  Created      DateTime     @default(now())
+  Updated      DateTime     @updatedAt
+
+  User     Users      @relation(fields: [UserId], references: [Id])
+  Plan     Plan       @relation(fields: [PlanId], references: [Id])
+  Payments Payments[]
+}
+
+model Payments {
+  Id             String        @id @default(uuid())
+  UserId         Int
+  SubscriptionId String
+  Amount         Decimal
+  Currency       String        @default("NGN")
+  Status         PaymentStatus @default(PENDING)
+
+  // Paystack specific fields
+  Reference       String    @unique // your generated reference sent to paystack
+  Description     String?
+  PaystackRef     String?   @unique // paystack's own reference
+  PaystackChannel String? // card, bank, ussd etc
+  PaidAt          DateTime?
+
+  Created DateTime @default(now())
+  Updated DateTime @updatedAt
+
+  User         Users        @relation(fields: [UserId], references: [Id])
+  Subscription Subscription @relation(fields: [SubscriptionId], references: [Id])
 }
