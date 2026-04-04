@@ -12,13 +12,20 @@ import {
     type SignUpBody,
     kDefaultAccessTokenExpirationIn,
     kDefaultRefreshTokenExpirationIn,
-} from "../../../constans/index.js";
+    kDefaultRateLimitMaxRequest,
+    kDefaultWindowSeconds,
+} from "../../../constants/index.js";
+import { rateLimiter } from "../../../middleware/rateLimitter.js";
 import { compareSync } from "bcrypt";
 import { addDays } from "date-fns";
 import * as uuid from "uuid";
 
 const LoginRoute = express.Router();
 
+const loginMaxRequest = kDefaultRateLimitMaxRequest - 95;
+const loginWindowSeconds = kDefaultWindowSeconds - 3200;
+
+LoginRoute.use(rateLimiter(loginMaxRequest, loginWindowSeconds));
 LoginRoute.post(
     "/",
     asyncHandler(async (req: Request, res: Response) => {
@@ -58,7 +65,7 @@ LoginRoute.post(
 
         if (!user) {
             let { message, errorCode, statusCode } = HandleServerError(
-                ErrorType.UsernameOrEmailUnavailable,
+                ErrorType.IncorrectPassword,
             );
             res.status(statusCode).json(
                 systemResponse(false, message, undefined, errorCode),
@@ -79,7 +86,7 @@ LoginRoute.post(
         let now = new Date();
         let sessionId = uuid.v4();
         let accessTokenExpiration = addDays(now, 1);
-        let refreshTokenExpiration = addDays(now, 14);
+        let refreshTokenExpiration = addDays(now, 7);
 
         let accessToken = generateJwtToken(
             JSON.stringify({
