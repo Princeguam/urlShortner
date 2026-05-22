@@ -5,12 +5,13 @@ import {
     prismaClient,
     base62Encode,
     cleanUrl,
+    getSkippedPrismaVale,
+    convertToBoolean,
+    Prisma,
 } from "../../../utilities/index.js";
 import {
     ErrorType,
     HandleServerError,
-    kUserEmailStoreKey,
-    kUsernameStoreKey,
     kUserSessionIdStoreKey,
     kDefaultSuccessMessage,
     kUserIdStoreKey,
@@ -18,14 +19,21 @@ import {
     kDefaultLinkExpirationTimeHR,
     kDefaultRateLimitMaxRequest,
     kDefaultWindowSeconds,
+    kDefaultQueryPage,
+    kDefaultSearchQuery,
+    kDefaultQueryCount,
+    $Types,
 } from "../../../constants/index.js";
-import v1AuthMiddleware from "../../../middleware/authMiddleware.js";
 import humps from "humps";
-import { addDays, addHours, isAfter } from "date-fns";
+import { addDays, addHours, isAfter, add } from "date-fns";
 import { nanoid } from "nanoid";
 import { $Enums } from "../../../../generated/prisma/browser.js";
-import { rateLimiter } from "../../../middleware/rateLimitter.js";
-import { cache } from "../../../middleware/cacheMiddleware.js";
+import {
+    rateLimiter,
+    v1AuthMiddleware,
+    cache,
+    invalidateCache,
+} from "../../../middleware/index.js";
 
 const UrlShortneroute = express.Router();
 
@@ -35,32 +43,129 @@ UrlShortneroute.use(
     rateLimiter(kDefaultRateLimitMaxRequest, kDefaultWindowSeconds),
 );
 
+type ArrangeBy = "LongUrl" | "ShortUrl" | "PreviousLongUrl" | "Created";
+
+type ArrangeOrder = "asc" | "desc";
+
+type QueryOrderByObject = Partial<Record<ArrangeBy, ArrangeOrder>>;
+
+interface UrlShortnerPostBody {
+    parentUrl: string;
+    expiration: Date | null;
+    customSlug: string;
+    isCustom: boolean;
+}
+
+interface UrlShortnerUpdateBody extends UrlShortnerPostBody {
+    urlId: number;
+}
+
 UrlShortneroute.get(
     "/",
-    cache(60),
+    cache({ ttlSeconds: 60 }),
     asyncHandler(async (req: Request, res: Response) => {
         let userId = req.store.get(kUserIdStoreKey);
 
-        let history = await prismaClient.urls.findMany({
-            where: {
-                UserId: userId,
-            },
-            select: {
-                Id: true,
-                LongUrl: true,
-                ShortUrl: true,
-                IsActive: true,
-                ExpiresAt: true,
-            },
-        });
+        console.log("THIS GETS HERE");
 
-        console.log("THIS key: ", req.store.get(kUserIdStoreKey));
+        let url = new URL(req.url || String(), `http://${req.headers.host}`);
+        let search = url.searchParams.get("search") || kDefaultSearchQuery;
+        let page = Number(url.searchParams.get("page") || kDefaultQueryPage);
+        page = !isNaN(page) ? page : kDefaultQueryPage;
+
+        let count = Number(url.searchParams.get("count") || kDefaultQueryCount);
+        count = !isNaN(count) ? count : kDefaultQueryCount;
+        count = Math.min(Math.max(0, count), kDefaultQueryCount);
+
+        let getAllRecord =
+            url.searchParams.has("all") &&
+            convertToBoolean(url.searchParams.get("all"));
+
+        let searchOrderBy: ArrangeBy = "Created";
+
+        if (url.searchParams.has("by")) {
+            let searchParamValue =
+                String(url.searchParams.get("by")) || String();
+            searchOrderBy = ["LongUrl", "ShortUrl", "PreviousLongUrl"].includes(
+                searchParamValue,
+            )
+                ? (searchParamValue as ArrangeBy)
+                : "Created";
+        }
+
+        let searchOrder: ArrangeOrder = "desc";
+        if (url.searchParams.has("order")) {
+            let searchParamValue =
+                String(url.searchParams.get("order")) || String();
+            searchOrder = ["asc", "desc"].includes(searchParamValue)
+                ? (searchParamValue as ArrangeOrder)
+                : "desc";
+        }
+
+        let orderBy: QueryOrderByObject = {
+            [searchOrderBy]: searchOrder,
+        };
+
+        if (searchOrderBy == "LongUrl") {
+            orderBy = {
+                LongUrl: searchOrder,
+            };
+        } else if (searchOrderBy == "ShortUrl") {
+            orderBy = {
+                ShortUrl: searchOrder,
+            };
+        }
+
+        let whereClause: Prisma.UrlsWhereInput = {
+            UserId: userId,
+
+            ...(search && {
+                OR: [
+                    {
+                        LongUrl: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                    {
+                        ShortUrl: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                ],
+            }),
+        };
+
+        let [totalItems, urls] = await prismaClient.$transaction([
+            prismaClient.urls.count({ where: whereClause }),
+            prismaClient.urls.findMany({
+                where: whereClause,
+                orderBy: orderBy,
+                select: $Types.Url,
+                take: !getAllRecord ? count : kDefaultQueryCount,
+                skip: !getAllRecord ? getSkippedPrismaVale(page, count) : 0,
+            }),
+        ]);
+
+        let pageData = urls.map(({ History, ...otherData }) => ({
+            ...otherData,
+            History: History,
+        }));
 
         res.status(200).json(
             systemResponse(
                 true,
                 kDefaultSuccessMessage,
-                humps.camelizeKeys(history),
+                {
+                    page: !getAllRecord ? page : kDefaultQueryPage,
+                    count: pageData.length,
+                    totalPages: !getAllRecord
+                        ? Math.ceil(totalItems / page)
+                        : kDefaultQueryPage,
+                    totalItems,
+                    pageData,
+                },
                 undefined,
             ),
         );
@@ -70,13 +175,58 @@ UrlShortneroute.get(
 UrlShortneroute.post(
     "/",
     asyncHandler(async (req: Request, res: Response) => {
-        let sessionId = req.store.get(kUserSessionIdStoreKey);
         let userId = req.store.get(kUserIdStoreKey);
-        let parentUrl = cleanUrl(req.body.parentUrl);
+
+        let body: UrlShortnerPostBody = req.body;
 
         let now = new Date();
 
-        if (!parentUrl) {
+        if (!body.parentUrl) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.LongUrlMissing,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        let [subscriptonPlan, customCheck, urlLimitReached] =
+            await prismaClient.$transaction([
+                prismaClient.subscription.findFirst({
+                    where: {
+                        UserId: userId,
+                        IsActive: true,
+                    },
+                    select: {
+                        Id: true,
+                        IsActive: true,
+                        StartDate: true,
+                        Plan: {
+                            select: {
+                                Id: true,
+                                MaxUrls: true,
+                                CustomSlug: true,
+                            },
+                        },
+                    },
+                }),
+
+                prismaClient.urls.count({
+                    where: {
+                        UserId: userId,
+                        IsCustom: true,
+                    },
+                }),
+
+                prismaClient.urls.count({
+                    where: {
+                        UserId: userId,
+                    },
+                }),
+            ]);
+
+        if (urlLimitReached >= subscriptonPlan?.Plan.MaxUrls!) {
             let { message, errorCode, statusCode } = HandleServerError(
                 ErrorType.InvalidUrl,
             );
@@ -86,18 +236,31 @@ UrlShortneroute.post(
             return;
         }
 
-        let url = parentUrl.toString();
+        if (customCheck >= subscriptonPlan?.Plan.CustomSlug!) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.InvalidUrl,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        let url = body.parentUrl.toString();
 
         let longUrlExist = await prismaClient.urls.findFirst({
             where: {
+                UserId: userId,
                 LongUrl: url,
             },
             select: {
+                Id: true,
                 LongUrl: true,
                 ShortUrl: true,
                 Clicks: true,
                 IsActive: true,
                 ExpiresAt: true,
+                IsCustom: true,
             },
         });
 
@@ -115,7 +278,10 @@ UrlShortneroute.post(
             data: {
                 UserId: userId,
                 LongUrl: url,
-                ExpiresAt: addHours(now, kDefaultLinkExpirationTimeHR),
+                ExpiresAt: body.expiration
+                    ? new Date(body.expiration)
+                    : addHours(now, kDefaultLinkExpirationTimeHR),
+                ShortUrl: body.customSlug ?? "dummy",
             },
             select: {
                 Id: true,
@@ -129,9 +295,9 @@ UrlShortneroute.post(
                 Id: registerUrl.Id,
             },
             data: {
-                ShortUrl: shortUrlCode,
-                ExpiresAt: addHours(now, kDefaultLinkExpirationTimeHR),
+                ShortUrl: body.isCustom ? body.customSlug : shortUrlCode,
                 IsActive: true,
+                IsCustom: body.isCustom,
             },
         });
 
@@ -159,24 +325,15 @@ UrlShortneroute.put(
     "/",
     asyncHandler(async (req: Request, res: Response) => {
         let userId = req.store.get(kUserIdStoreKey);
-        let urlId = parseInt(req.body.urlId);
-        let longUrl = req.body.longUrl;
-        let expiration = new Date(req.body?.expiration);
-        let now = new Date();
 
-        if (!expiration) expiration = addDays(now, 1);
+        let body: UrlShortnerUpdateBody = req.body;
 
         let urlExist = await prismaClient.urls.findFirst({
             where: {
-                Id: urlId,
+                Id: body.urlId,
                 UserId: userId,
             },
-            select: {
-                LongUrl: true,
-                ShortUrl: true,
-                IsActive: true,
-                ExpiresAt: true,
-            },
+            select: $Types.Url,
         });
 
         if (!urlExist) {
@@ -189,46 +346,46 @@ UrlShortneroute.put(
             return;
         }
 
-        let updatedUrl = await prismaClient.urls.update({
-            where: {
-                Id: urlId,
-                UserId: userId,
-            },
-            data: {
-                LongUrl: longUrl,
-                ExpiresAt: expiration,
-            },
-        });
-
-        let history = await prismaClient.history.create({
-            data: {
-                ChangedById: userId,
-                UrlId: urlId,
-                PreviousLongUrl: urlExist.LongUrl,
-                NewLongUrl: longUrl,
-                Action: $Enums.ChangeAction.UPDATE,
-            },
-            select: {
-                Id: true,
-                PreviousLongUrl: true,
-                NewLongUrl: true,
-                Action: true,
-                Url: {
-                    select: {
-                        ShortUrl: true,
-                        LongUrl: true,
-                        ExpiresAt: true,
-                    },
+        let transactionResult = await prismaClient.$transaction(async (tx) => {
+            let updatedUrl = await tx.urls.update({
+                where: {
+                    Id: body.urlId,
+                    UserId: userId,
                 },
-            },
-        });
+                data: {
+                    LongUrl: body.parentUrl ? body.parentUrl : urlExist.LongUrl,
+                    ExpiresAt: body.expiration ?? urlExist.ExpiresAt,
+                    ShortUrl: body.customSlug ?? urlExist.ShortUrl,
+                },
+            });
 
-        console.log(updatedUrl);
+            let history = await tx.history.create({
+                data: {
+                    ChangedById: userId,
+                    UrlId: body.urlId,
+                    PreviousShortUrl: urlExist.ShortUrl,
+                    NewShortUrl: updatedUrl ? updatedUrl.ShortUrl : null,
+                    PreviousLongUrl: urlExist.LongUrl,
+                    NewLongUrl: updatedUrl ? updatedUrl.LongUrl : null,
+                    Action: $Enums.ChangeAction.UPDATE,
+                    PreviousExpiration: urlExist.ExpiresAt,
+                    NewExpiration: updatedUrl
+                        ? updatedUrl.ExpiresAt
+                        : urlExist.ExpiresAt,
+                },
+                select: $Types.History,
+            });
+            return { updatedUrl, history };
+        });
+        await invalidateCache(
+            "json",
+            transactionResult.history.PreviousLongUrl,
+        );
         res.status(200).json(
             systemResponse(
                 true,
                 kDefaultSuccessMessage,
-                humps.camelizeKeys(history),
+                humps.camelizeKeys(transactionResult.history),
                 undefined,
             ),
         );
