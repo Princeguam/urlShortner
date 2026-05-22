@@ -62,6 +62,7 @@ model Users {
   Created       DateTime @default(now())
   Updated       DateTime @updatedAt()
   EmailVerified Boolean  @default(false)
+  IsActive      Boolean  @default(true)
 
   UserSession  UserSessions[]
   History      History[]
@@ -85,6 +86,8 @@ model UserToken {
   Updated    DateTime  @updatedAt
 
   User Users @relation(fields: [UserId], references: [Id], onDelete: Cascade)
+
+  @@unique([UserId, Type])
 }
 
 model UserSessions {
@@ -102,7 +105,8 @@ model Urls {
   Id        Int      @id @default(autoincrement())
   UserId    Int
   LongUrl   String
-  ShortUrl  String?
+  ShortUrl  String   @unique
+  IsCustom  Boolean  @default(false)
   IsActive  Boolean?
   Clicks    Int?     @default(0)
   ExpiresAt DateTime
@@ -115,13 +119,17 @@ model Urls {
 }
 
 model History {
-  Id              Int          @id @default(autoincrement())
-  ChangedById     Int
-  UrlId           Int
-  Action          ChangeAction @default(UPDATE)
-  PreviousLongUrl String?
-  NewLongUrl      String
-  changedAt       DateTime     @default(now())
+  Id                 Int          @id @default(autoincrement())
+  ChangedById        Int
+  UrlId              Int
+  Action             ChangeAction @default(UPDATE)
+  PreviousLongUrl    String
+  NewLongUrl         String?
+  PreviousShortUrl   String
+  NewShortUrl        String?
+  PreviousExpiration DateTime?
+  NewExpiration      DateTime?
+  ChangedAt          DateTime     @default(now())
 
   ChangedBy Users @relation(fields: [ChangedById], references: [Id])
   Url       Urls  @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
@@ -142,10 +150,11 @@ model Plan {
   Id          String   @id @default(uuid())
   Name        PlanType @unique
   Price       Decimal // monthly price
+  PlanCode    String?
   AnnualPrice Decimal? // discounted annual price
   MaxUrls     Int? // how many short urls allowed
   MaxClicks   Int? // click limit per month
-  CustomSlug  Boolean? @default(false) // custom short codes
+  CustomSlug  Int? // custom short codes
   Analytics   Boolean  @default(false) // access to click analytics
   Created     DateTime @default(now())
   Updated     DateTime @updatedAt
@@ -154,15 +163,18 @@ model Plan {
 }
 
 model Subscription {
-  Id           String       @id @default(uuid())
-  UserId       Int
-  PlanId       String
-  BillingCycle BillingCycle
-  IsActive     Boolean      @default(false)
-  StartDate    DateTime?
-  EndDate      DateTime? // null = active until cancelled
-  Created      DateTime     @default(now())
-  Updated      DateTime     @updatedAt
+  Id                      String       @id @default(uuid())
+  UserId                  Int
+  PlanId                  String
+  BillingCycle            BillingCycle
+  IsActive                Boolean      @default(false)
+  GatewaySubscriptionCode String?      @unique
+  GatewayCustomerCode     String?
+  StartDate               DateTime?
+  CancelledAt             DateTime?
+  EndDate                 DateTime? // null = active until cancelled
+  Created                 DateTime     @default(now())
+  Updated                 DateTime     @updatedAt
 
   User     Users      @relation(fields: [UserId], references: [Id])
   Plan     Plan       @relation(fields: [PlanId], references: [Id])
