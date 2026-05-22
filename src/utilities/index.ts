@@ -61,6 +61,42 @@ export function cleanUrl(url: string) {
         }
     }
 }
+export function convertToBoolean(value: string | number | null) {
+    if (typeof value == "boolean") return value;
+    if (typeof value == "number") return value !== 0;
+    if (value === null) return false;
+
+    if (typeof value == "string") {
+        switch (value.trim().toLowerCase()) {
+            case "true":
+            case "t":
+            case "1":
+            case "yes":
+            case "y":
+            case "on":
+                return true;
+            case "false":
+            case "f":
+            case "0":
+            case "no":
+            case "n":
+            case "off":
+                return false;
+        }
+    }
+
+    if (typeof value == "number") {
+        return value !== 0;
+    }
+
+    return Boolean(value);
+}
+
+export function getSkippedPrismaVale(page: number, count: number): number {
+    return Math.max((page - 1) * count, 0);
+}
+
+export * from "./paystack.js";
 export * from "./sendResponse.js";
 export * from "./prismaClient.js";
 export * from "./email.js";
