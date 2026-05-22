@@ -2,15 +2,27 @@ import type { Request, Response, NextFunction } from "express";
 import asyncHandler from "express-async-handler";
 
 import redisClient from "../utilities/redis.js";
+import { kDefaultCacheKey, kDefaultRedirectKey } from "../constants/strings.js";
 
-export function cache(ttlSeconds: number) {
+type CacheType = "json" | "redirect";
+
+interface CacheOptions {
+    ttlSeconds: number;
+    resType?: CacheType;
+}
+
+export function cache(option: CacheOptions) {
+    const { ttlSeconds, resType = "json" } = option;
     return asyncHandler(
         async (
             req: Request,
             res: Response,
             next: NextFunction,
         ): Promise<void> => {
-            let key = `cache:${req.originalUrl}`;
+            let key =
+                resType == "redirect"
+                    ? `${kDefaultRedirectKey}:${req.params.shortCode}`
+                    : `${kDefaultCacheKey}:${req.originalUrl}`;
 
             try {
                 console.time("request");
@@ -20,23 +32,47 @@ export function cache(ttlSeconds: number) {
                 let cached = await cachedPromise;
 
                 if (cached) {
-                    console.timeEnd("request");
-                    res.json(JSON.parse(cached));
+                    if (resType === "redirect") {
+                        console.timeEnd("request");
+                        console.log("CACHED NOW");
+                        res.redirect(cached);
+                    } else {
+                        res.json(JSON.parse(cached));
+                        console.timeEnd("request");
+                    }
                     return;
                 }
 
-                let originalJson = res.json.bind(res);
-                res.json = (body: any) => {
-                    if (res.statusCode == 200 || body?.success === true) {
-                        redisClient.setex(
-                            key,
-                            ttlSeconds,
-                            JSON.stringify(body),
-                        );
-                    }
-                    console.timeEnd("request");
-                    return originalJson(body);
-                };
+                console.log("NOT CACHED YET");
+
+                if (resType === "redirect") {
+                    let originalRedirect = res.redirect.bind(res);
+                    (res.redirect as any) = (
+                        urlOrString: string | number,
+                        url?: string,
+                    ): void => {
+                        let redirectUrl =
+                            typeof urlOrString === "string"
+                                ? urlOrString
+                                : url!;
+                        redisClient.setex(key, ttlSeconds, redirectUrl);
+                        console.timeEnd("request");
+                        return originalRedirect(urlOrString as any, url as any);
+                    };
+                } else {
+                    let originalJson = res.json.bind(res);
+                    res.json = (body: any) => {
+                        if (res.statusCode == 200 || body?.success === true) {
+                            redisClient.setex(
+                                key,
+                                ttlSeconds,
+                                JSON.stringify(body),
+                            );
+                        }
+                        console.timeEnd("request");
+                        return originalJson(body);
+                    };
+                }
 
                 next();
             } catch (error) {
@@ -47,9 +83,22 @@ export function cache(ttlSeconds: number) {
     );
 }
 
-export async function invalidateCache(pattern: string) {
-    let keys = await redisClient.keys(`cache:*${pattern}*`);
-    if (keys.length > 0) {
-        await redisClient.del(keys);
+export async function invalidateCache(resType: CacheType, pattern: string) {
+    let key =
+        resType === "redirect"
+            ? `${kDefaultRedirectKey}:${pattern}`
+            : `${kDefaultCacheKey}:${pattern}`;
+
+    try {
+        let wildcardKey = resType === "redirect" ? key : `${key}*`;
+        let keys = await redisClient.keys(`${wildcardKey}*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+            console.log(`${resType} Cache invalidated, key: `, keys);
+        }
+    } catch (err) {
+        console.error("Cache Invalidation Error: ", err);
     }
+
+    console.log("DONE");
 }
