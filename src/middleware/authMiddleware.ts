@@ -105,5 +105,3 @@ export function v1AuthMiddleware() {
         },
     );
 }
-
-export default v1AuthMiddleware;
