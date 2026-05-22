@@ -17,6 +17,22 @@ export const ErrorType = {
     VerificationLinkExpired: 116,
     EmailAlreadyVerfified: 117,
     RateLimitExceded: 118,
+    NotAuthorized: 119,
+    PlanIdMissing: 120,
+    PlanUnavailable: 121,
+    PlanPriceMissing: 122,
+    PlanNameMissing: 123,
+    PlanAlreadyExist: 124,
+    PaymentFailed: 125,
+    InvalidSignature: 126,
+    PaymentUnavailable: 127,
+    MaxCustomSlugReached: 128,
+    LongUrlMissing: 129,
+    MaxUrlReached: 130,
+    MaxClicksReached: 131,
+    RefreshTokenMissing: 132,
+    UserDeactivated: 133,
+    InvalidRefreshToken: 134,
 };
 
 interface ErrorResponse {
@@ -93,6 +109,24 @@ export function HandleServerError(type: number): ErrorResponse {
                 message: "Invalid Url Provided",
                 statusCode: 400,
             };
+        case ErrorType.InvalidRefreshToken:
+            return {
+                errorCode: type,
+                message: "Invalid Refresh Token Provided",
+                statusCode: 400,
+            };
+        case ErrorType.UserDeactivated:
+            return {
+                errorCode: type,
+                message: "User Deactivated",
+                statusCode: 403,
+            };
+        case ErrorType.InvalidSignature:
+            return {
+                errorCode: type,
+                message: "Invalid Signature Provided",
+                statusCode: 400,
+            };
         case ErrorType.UrlExpired:
             return {
                 errorCode: type,
@@ -105,16 +139,88 @@ export function HandleServerError(type: number): ErrorResponse {
                 message: "Url Unavailable",
                 statusCode: 400,
             };
+        case ErrorType.PaymentUnavailable:
+            return {
+                errorCode: type,
+                message: "Payment Unavailable",
+                statusCode: 400,
+            };
+        case ErrorType.MaxCustomSlugReached:
+            return {
+                errorCode: type,
+                message: "Max Custom Slug Reached",
+                statusCode: 400,
+            };
+        case ErrorType.MaxUrlReached:
+            return {
+                errorCode: type,
+                message: "Max Url Reached",
+                statusCode: 400,
+            };
+        case ErrorType.MaxClicksReached:
+            return {
+                errorCode: type,
+                message: "Max Url Clicks Reached",
+                statusCode: 400,
+            };
         case ErrorType.UrlAlreadyExist:
             return {
                 errorCode: type,
                 message: "Url Already Exist",
                 statusCode: 409,
             };
+        case ErrorType.PlanAlreadyExist:
+            return {
+                errorCode: type,
+                message: "Plan Already Exist",
+                statusCode: 409,
+            };
         case ErrorType.UserUnavailable:
             return {
                 errorCode: type,
                 message: "User Unavailable",
+                statusCode: 400,
+            };
+        case ErrorType.PlanIdMissing:
+            return {
+                errorCode: type,
+                message: "PlanId Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.PlanPriceMissing:
+            return {
+                errorCode: type,
+                message: "Plan Price Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.RefreshTokenMissing:
+            return {
+                errorCode: type,
+                message: "Refresh Token Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.LongUrlMissing:
+            return {
+                errorCode: type,
+                message: "Long Url Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.PlanNameMissing:
+            return {
+                errorCode: type,
+                message: "Plan Name Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.PlanUnavailable:
+            return {
+                errorCode: type,
+                message: "Plan Unavailable",
+                statusCode: 400,
+            };
+        case ErrorType.PaymentFailed:
+            return {
+                errorCode: type,
+                message: "Payment Unsuccessful",
                 statusCode: 400,
             };
         case ErrorType.EmailAlreadyVerfified:
@@ -134,6 +240,12 @@ export function HandleServerError(type: number): ErrorResponse {
                 errorCode: type,
                 message: "RateLimit Exceded. Try again later",
                 statusCode: 429,
+            };
+        case ErrorType.NotAuthorized:
+            return {
+                errorCode: type,
+                message: "Not Authorized",
+                statusCode: 403,
             };
         default:
             return {
