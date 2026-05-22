@@ -14,8 +14,9 @@ import {
     kDefaultRefreshTokenExpirationIn,
     kDefaultRateLimitMaxRequest,
     kDefaultWindowSeconds,
+    kUserIdStoreKey,
 } from "../../../constants/index.js";
-import { rateLimiter } from "../../../middleware/rateLimitter.js";
+import { rateLimiter } from "../../../middleware/index.js";
 import { compareSync } from "bcrypt";
 import { addDays } from "date-fns";
 import * as uuid from "uuid";
@@ -113,6 +114,14 @@ LoginRoute.post(
                 Expiration: expiration,
                 RefreshToken: refreshToken,
             },
+        });
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            path: "/auth/refresh",
+            maxAge: 14 * 24 * 60 * 60 * 1000,
         });
 
         res.status(200).json(
