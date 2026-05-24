@@ -18,6 +18,8 @@ import { rateLimiter, expressCookieParser } from "../../../middleware/index.js";
 
 const RefreshRoute = express.Router();
 
+RefreshRoute.use(rateLimiter(10, 3000));
+
 RefreshRoute.use(expressCookieParser());
 
 /**
@@ -103,10 +105,13 @@ RefreshRoute.post(
                     Id: sessionId,
                 },
                 select: {
+                    Id: true,
+                    Expiration: true,
+                    RefreshToken: true,
                     User: {
                         select: {
                             Id: true,
-                            isActive: true,
+                            IsActive: true,
                             Role: true,
                         },
                     },
@@ -123,7 +128,7 @@ RefreshRoute.post(
                 return;
             }
 
-            if (user.User.isActive == false) {
+            if (user.User.IsActive === false) {
                 let { message, errorCode, statusCode } = HandleServerError(
                     ErrorType.UserDeactivated,
                 );

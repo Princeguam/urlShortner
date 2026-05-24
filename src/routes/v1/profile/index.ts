@@ -41,6 +41,7 @@ ProfileRoute.use(v1AuthMiddleware());
 
 ProfileRoute.get(
     "/",
+    cache({ ttlSeconds: 60 }),
     asyncHandler(async (req: Request, res: Response) => {
         let userId = req.store.get(kUserIdStoreKey);
 
@@ -50,14 +51,14 @@ ProfileRoute.get(
             },
             select: {
                 Id: true,
-                isActive: true,
+                IsActive: true,
                 Username: true,
                 Email: true,
                 EmailVerified: true,
             },
         });
 
-        if (!profile || profile.isActive === false) {
+        if (!profile || profile.IsActive === false) {
             let { message, errorCode, statusCode } = HandleServerError(
                 ErrorType.UserUnavailable,
             );
