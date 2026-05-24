@@ -19,3 +19,4 @@ export const BASE62 =
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const kRateLimitKey = "rate_limit";
 export const kPaystackAPIURL = "https://api.paystack.co/";
+export const kDefaultApiVersion = "v1";

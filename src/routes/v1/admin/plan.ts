@@ -112,7 +112,6 @@ PlanRoute.get(
 
 PlanRoute.post(
     "/",
-    userRolePermit(),
     asyncHandler(async (req: Request, res: Response) => {
         let body = req.body || {};
 
@@ -185,7 +184,6 @@ PlanRoute.post(
 
 PlanRoute.put(
     "/:planId",
-    userRolePermit(),
     asyncHandler(async (req: Request, res: Response) => {
         let planId = req.params.planId?.toString();
 

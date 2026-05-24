@@ -5,6 +5,7 @@ import V1Route from "./routes/index.js";
 import { requestTempStore } from "./middleware/index.js";
 import { userAgent } from "./middleware/index.js";
 import cors from "cors";
+import { kDefaultApiVersion } from "./constants/strings.js";
 
 const app = express();
 const PORT = process.env.PORT;
@@ -48,8 +49,13 @@ app.get("/api/health", (req: Request, res: Response) => {
         timeStamp: new Date().toISOString(),
     });
 });
+
 app.get("/api", (req: Request, res: Response) => {
     res.send("Everything works as it should");
+});
+
+app.get(`/docs`, (_: Request, res: Response) => {
+    res.redirect(`/api/${kDefaultApiVersion}/docs`);
 });
 
 app.use("/api/v1", V1Route);

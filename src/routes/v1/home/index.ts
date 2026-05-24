@@ -60,13 +60,41 @@ interface UrlShortnerUpdateBody extends UrlShortnerPostBody {
     urlId: number;
 }
 
+/**
+ * @swagger
+ * /home:
+ *   get:
+ *     tags:
+ *       - Url
+ *     summary: Get all Users Url
+ *     description: Get all the users url with pagination
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         summary: The user's urls
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true,
+ *                 message:
+ *                   type: string
+ *
+ *
+ *
+ *
+ *
+ */
+
 UrlShortneroute.get(
     "/",
     cache({ ttlSeconds: 60 }),
     asyncHandler(async (req: Request, res: Response) => {
         let userId = req.store.get(kUserIdStoreKey);
-
-        console.log("THIS GETS HERE");
 
         let url = new URL(req.url || String(), `http://${req.headers.host}`);
         let search = url.searchParams.get("search") || kDefaultSearchQuery;

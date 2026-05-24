@@ -20,7 +20,50 @@ const RefreshRoute = express.Router();
 
 RefreshRoute.use(expressCookieParser());
 
-RefreshRoute.get(
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Refresh access token
+ *     description: Refresh the access token using the refresh token stored in http only cookie
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         required: true
+ *         schema:
+ *           type: string
+ *
+ *     responses:
+ *       200:
+ *         description: refreshed user authentication data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Request Successful"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                 error:
+ *                   allOf:
+ *                     - $ref: "#/components/schemas/ServerError"
+ *                   nullable: true
+ *       400:
+ *         description: Invalid or Expired refresh token
+ *       403:
+ *         description: Authorization Expired
+ *
+ *
+ */
+
+RefreshRoute.post(
     "/",
     asyncHandler(async (req: Request, res: Response) => {
         let refreshToken = req.cookies.refreshToken;

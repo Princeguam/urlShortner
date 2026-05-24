@@ -83,7 +83,7 @@ export function HandleServerError(type: number): ErrorResponse {
             return {
                 errorCode: type,
                 message: "Username Already Exist",
-                statusCode: 400,
+                statusCode: 409,
             };
         case ErrorType.InvalidRole:
             return {

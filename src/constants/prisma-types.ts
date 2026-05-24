@@ -22,3 +22,21 @@ export const Url = {
         select: History,
     },
 };
+
+export const User = {
+    Id: true,
+    Username: true,
+    Email: true,
+    Created: true,
+    EmailVerified: true,
+    IsActive: true,
+    Url: {
+        select: {
+            Id: true,
+            ShortUrl: true,
+            LongUrl: true,
+            IsActive: true,
+            Clicks: true,
+        },
+    },
+};

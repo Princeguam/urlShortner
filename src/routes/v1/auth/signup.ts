@@ -25,9 +25,83 @@ import { rateLimiter } from "../../../middleware/index.js";
 
 const SignUpRoute = express.Router();
 
+SignUpRoute.use(rateLimiter(10, 600));
+
+/**
+ * @swagger
+ * /auth/signup:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Create a user
+ *     description: Create a new user and return access token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/SignupRequestBody"
+ *     responses:
+ *       200:
+ *         description: The new user authentication data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Request Successful"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                 error:
+ *                   $ref: "#/components/schemas/ServerError"
+ *                   nullable: true
+ *       400:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email already exist"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                   nullable: true,
+ *                   example: null
+ *                 error:
+ *                   $ref: "#components/schemas/ServerError"
+ *       409:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User Already Exist"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                   nullable: true,
+ *                   example: null
+ *                 error:
+ *                   $ref: "#components/schemas/ServerError"
+ *
+ *
+ */
+
 SignUpRoute.post(
     "/",
-    rateLimiter(10, 600),
     asyncHandler(async (req: Request, res: Response) => {
         let body: SignUpBody = req.body;
 
@@ -227,3 +301,29 @@ SignUpRoute.post(
 );
 
 export default SignUpRoute;
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SignupRequestBody:
+ *       type: object
+ *       required:
+ *         - username
+ *         - email
+ *         - password
+ *       properties:
+ *         username:
+ *           type: string
+ *           description: "The user's username"
+ *           example: princeguam
+ *         email:
+ *           type: string
+ *           description: "The user's email"
+ *           example: example@email.com
+ *         password:
+ *           type: string
+ *           description: "The user's password"
+ *           example: password
+ *
+ */

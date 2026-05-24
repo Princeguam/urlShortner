@@ -27,6 +27,64 @@ const loginMaxRequest = kDefaultRateLimitMaxRequest - 95;
 const loginWindowSeconds = kDefaultWindowSeconds - 3200;
 
 LoginRoute.use(rateLimiter(loginMaxRequest, loginWindowSeconds));
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Login a user
+ *     description: Authenticate user and return access token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *          application/json:
+ *            schema:
+ *              $ref: "#/components/schemas/LoginRequestBody"
+ *     responses:
+ *       200:
+ *         description: The user authentication data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Request Successful"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                 error:
+ *                   $ref: "#/components/schemas/ServerError"
+ *                   nullable: true
+ *       400:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Password Incorrect"
+ *                 data:
+ *                   $ref: "#/components/schemas/Auth"
+ *                   nullable: true,
+ *                   example: null
+ *                 error:
+ *                   $ref: "#/components/schemas/ServerError"
+ *
+ *
+ *
+ *
+ *
+ */
 LoginRoute.post(
     "/",
     asyncHandler(async (req: Request, res: Response) => {
@@ -130,7 +188,7 @@ LoginRoute.post(
                 kDefaultSuccessMessage,
                 {
                     accessToken: accessToken,
-                    refreshToken: refreshToken,
+                    expiresIn: accessTokenExpiration.getTime(),
                     role: user.Role,
                 },
                 undefined,
@@ -140,3 +198,24 @@ LoginRoute.post(
 );
 
 export default LoginRoute;
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     LoginRequestBody:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           description: The user's email
+ *           example: "example@email.com"
+ *         password:
+ *           type: string
+ *           description: The user's password
+ *           example: password
+ *
+ */
