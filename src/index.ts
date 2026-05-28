@@ -11,34 +11,13 @@ const app = express();
 const PORT = process.env.PORT;
 const ENV = process.env.DEPLOYMENT_ENV;
 
-if (ENV === "PROD") {
-    const allowedOrigins = [
-        "http://localhost:5173/",
-        "https://www.yourfrontend.com",
-    ];
-    app.use(
-        cors({
-            origin: (origin, callback) => {
-                if (!origin) {
-                    return callback(null, true);
-                }
-                if (allowedOrigins.includes(origin)) {
-                    return callback(null, true);
-                }
+app.use(
+    cors({
+        origin: ["http://localhost:4000", "http://localhost:5174"],
+        credentials: true,
+    }),
+);
 
-                return callback(new Error("Not Allowed by CORS"));
-            },
-            credentials: true,
-        }),
-    );
-} else {
-    app.use(
-        cors({
-            origin: "*", // Accept all
-            credentials: true,
-        }),
-    );
-}
 app.use(express.json());
 app.use(userAgent());
 app.use(requestTempStore());
