@@ -5,8 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider      = "prisma-client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  output        = "../generated/prisma"
 }
 
 datasource db {
@@ -63,6 +64,7 @@ model Users {
   Updated       DateTime @updatedAt()
   EmailVerified Boolean  @default(false)
   IsActive      Boolean  @default(true)
+  IsDeleted     Boolean  @default(false)
 
   UserSession  UserSessions[]
   History      History[]
@@ -136,14 +138,33 @@ model History {
 }
 
 model ClickLogs {
-  Id        Int     @id @default(autoincrement())
-  UrlId     Int
-  IpAddress String?
-  UserAgent String?
+  Id           Int       @id @default(autoincrement())
+  UrlId        Int
+  ReferrerId   Int?
+  IpAddress    String?
+  UserAgent    String?
+  Browser      String?
+  DeviceType   String?
+  DeviceVendor String?
+  Country      String?
+  City         String?
+  TimeZone     String?
+  Language     String?
+  Os           String?
+  OsVersion    String?
+  CickedAt     DateTime?
 
   Created DateTime @default(now())
 
-  Url Urls @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
+  Url      Urls       @relation(fields: [UrlId], references: [Id], onDelete: Cascade)
+  Referrer Referrers? @relation(fields: [ReferrerId], references: [Id], onDelete: SetNull)
+}
+
+model Referrers {
+  Id     Int    @id @default(autoincrement())
+  Domain String @unique
+
+  ClickLog ClickLogs[]
 }
 
 model Plan {
