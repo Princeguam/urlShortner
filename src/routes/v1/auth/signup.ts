@@ -5,7 +5,7 @@ import {
     prismaClient,
     generateJwtToken,
     decodeJwtToken,
-    sendMailVerificationEmail,
+    sendEmail,
 } from "../../../utilities/index.js";
 import {
     HandleServerError,
@@ -16,12 +16,16 @@ import {
     kDefaultAccessTokenExpirationIn,
     kDefaultRefreshTokenExpirationIn,
     $Enums,
+    kEmailverificationSubject,
+    kRrefreshTokenKey,
 } from "../../../constants/index.js";
 import { hash } from "bcrypt";
 import * as uuid from "uuid";
 import { addDays, addMinutes, isAfter } from "date-fns";
 import * as humps from "humps";
 import { rateLimiter } from "../../../middleware/index.js";
+import { publish } from "../../../worker/producer.js";
+import { kHttpOnlyCookieOption } from "../../../constants/objects.js";
 
 const SignUpRoute = express.Router();
 
@@ -189,15 +193,25 @@ SignUpRoute.post(
 
         const hashedPassword = await hash(body.password, kDefaultSaltRounds);
 
-        let planExist = await prismaClient.plan.findFirst({
+        let planExist = await prismaClient.plan.findUnique({
             where: {
-                Name: "Free",
+                Name: $Enums.PlanType.Free,
             },
             select: {
                 Id: true,
                 Name: true,
             },
         });
+
+        if (!planExist) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.PlanUnavailable,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
 
         let transactionResult = await prismaClient.$transaction(async (tx) => {
             let user = await tx.users.create({
@@ -217,7 +231,7 @@ SignUpRoute.post(
             let subscription = await tx.subscription.create({
                 data: {
                     UserId: user.Id,
-                    PlanId: planExist!.Id,
+                    PlanId: planExist.Id,
                     BillingCycle: $Enums.BillingCycle.Monthly,
                     IsActive: true,
                 },
@@ -271,19 +285,15 @@ SignUpRoute.post(
             },
         });
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            path: "/auth/refresh",
-            maxAge: 14 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie(kRrefreshTokenKey, refreshToken, kHttpOnlyCookieOption); // httpOnly cookie is set here
 
-        sendMailVerificationEmail(
-            body.email,
-            body.username,
-            emailVerificationToken,
-        );
+        publish("email.send", {
+            to: body.email,
+            template: "verify",
+            subject: kEmailverificationSubject,
+            name: body.username,
+            token: emailVerificationToken,
+        });
 
         res.status(200).json(
             systemResponse(

@@ -5,7 +5,6 @@ import {
     prismaClient,
     generateJwtToken,
     decodeJwtToken,
-    sendMailVerificationEmail,
 } from "../../../utilities/index.js";
 import {
     HandleServerError,
