@@ -15,11 +15,14 @@ import {
     kDefaultRateLimitMaxRequest,
     kDefaultWindowSeconds,
     kUserIdStoreKey,
+    kRrefreshTokenKey,
+    kDefaultRefreshTokenExpiration,
 } from "../../../constants/index.js";
 import { rateLimiter } from "../../../middleware/index.js";
 import { compareSync } from "bcrypt";
 import { addDays } from "date-fns";
 import * as uuid from "uuid";
+import { kHttpOnlyCookieOption } from "../../../constants/objects.js";
 
 const LoginRoute = express.Router();
 
@@ -119,6 +122,9 @@ LoginRoute.post(
                 Password: true,
                 Username: true,
                 Role: true,
+                EmailVerified: true,
+                IsActive: true,
+                IsDeleted: true,
             },
         });
 
@@ -135,6 +141,16 @@ LoginRoute.post(
         if (!user.Password || !compareSync(body.password, user.Password)) {
             let { message, errorCode, statusCode } = HandleServerError(
                 ErrorType.IncorrectPassword,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
+
+        if (user.IsDeleted) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.UserDeactivated,
             );
             res.status(statusCode).json(
                 systemResponse(false, message, undefined, errorCode),
@@ -159,6 +175,7 @@ LoginRoute.post(
             JSON.stringify({
                 sessionId: sessionId,
                 expiresIn: refreshTokenExpiration,
+                isRefreshToken: true,
             }),
             kDefaultRefreshTokenExpirationIn,
         );
@@ -174,13 +191,7 @@ LoginRoute.post(
             },
         });
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            path: "/auth/refresh",
-            maxAge: 14 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie(kRrefreshTokenKey, refreshToken, kHttpOnlyCookieOption); // set httpOnly cookie
 
         res.status(200).json(
             systemResponse(
@@ -190,6 +201,7 @@ LoginRoute.post(
                     accessToken: accessToken,
                     expiresIn: accessTokenExpiration.getTime(),
                     role: user.Role,
+                    emailVerified: user.EmailVerified,
                 },
                 undefined,
             ),
