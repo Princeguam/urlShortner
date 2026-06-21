@@ -40,3 +40,14 @@ export const User = {
         },
     },
 };
+
+export const Plan = {
+    Id: true,
+    Name: true,
+    Price: true,
+    MaxUrls: true,
+    MaxClicks: true,
+    CustomSlug: true,
+    Analytics: true,
+    AnnualPrice: true,
+};

@@ -33,6 +33,8 @@ export const ErrorType = {
     RefreshTokenMissing: 132,
     UserDeactivated: 133,
     InvalidRefreshToken: 134,
+    FileMissing: 135,
+    InvalidToken: 136,
 };
 
 interface ErrorResponse {
@@ -71,6 +73,12 @@ export function HandleServerError(type: number): ErrorResponse {
             return {
                 errorCode: type,
                 message: "Authorization Invalid",
+                statusCode: 403,
+            };
+        case ErrorType.InvalidToken:
+            return {
+                errorCode: type,
+                message: "Invalid Token",
                 statusCode: 403,
             };
         case ErrorType.EmailAlreadyExist:
@@ -191,6 +199,12 @@ export function HandleServerError(type: number): ErrorResponse {
             return {
                 errorCode: type,
                 message: "Plan Price Not Provided",
+                statusCode: 400,
+            };
+        case ErrorType.FileMissing:
+            return {
+                errorCode: type,
+                message: "File Not Provided",
                 statusCode: 400,
             };
         case ErrorType.RefreshTokenMissing:
