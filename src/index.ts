@@ -1,15 +1,18 @@
 import "dotenv/config";
-import "./utilities/redis.js";
 import express, { type Request, type Response } from "express";
-import V1Route from "./routes/index.js";
-import { requestTempStore } from "./middleware/index.js";
-import { userAgent } from "./middleware/index.js";
+import "./utilities/redis.js";
 import cors from "cors";
+import {
+    requestTempStore,
+    userAgent,
+    expressCookieParser,
+} from "./middleware/index.js";
+import V1Route from "./routes/index.js";
 import { kDefaultApiVersion } from "./constants/strings.js";
 
 const app = express();
 const PORT = process.env.PORT;
-const ENV = process.env.DEPLOYMENT_ENV;
+const ENV = process.env.NODE_ENV; // development or production (spelt out like this)
 
 app.use(
     cors({
@@ -19,8 +22,10 @@ app.use(
 );
 
 app.use(express.json());
+app.set("trust proxy", 1);
 app.use(userAgent());
 app.use(requestTempStore());
+app.use(expressCookieParser());
 
 app.get("/api/health", (req: Request, res: Response) => {
     res.status(200).json({

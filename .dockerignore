@@ -1,0 +1,16 @@
+# Exclude version control
+.git
+.gitignore
+
+# Exclude dependencies and builds
+node_modules
+npm-debug.log
+coverage
+
+# Exclude secrets and environments
+.env
+.env.local
+
+# Exclude OS-specific metadata
+.DS_Store
+Thumbs.db
