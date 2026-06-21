@@ -22,17 +22,17 @@ import {
     kDefaultQueryCount,
     kDefaultQueryPage,
     $Types,
+    $Enums,
 } from "../../../constants/index.js";
 import humps from "humps";
 import { addDays, addHours, isAfter } from "date-fns";
 import { nanoid } from "nanoid";
-import { $Enums } from "../../../../generated/prisma/browser.js";
 import {
     rateLimiter,
     v1AuthMiddleware,
     userRolePermit,
 } from "../../../middleware/index.js";
-import PlanRoute from "./plan.js";
+import PlanRoute from "../plan/index.js";
 
 const AdminRoute = express.Router();
 
@@ -160,7 +160,5 @@ AdminRoute.get(
         );
     }),
 );
-
-AdminRoute.use("/plan", PlanRoute);
 
 export default AdminRoute;
