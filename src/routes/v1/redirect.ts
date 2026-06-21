@@ -8,6 +8,7 @@ import {
 import { ErrorType, HandleServerError } from "../../constants/index.js";
 import { isAfter } from "date-fns";
 import { cache } from "../../middleware/index.js";
+import { publish } from "../../worker/producer.js";
 
 interface UrlResponse {
     Id: number;
@@ -32,7 +33,21 @@ const RedirectRoute = express.Router();
 
 RedirectRoute.get(
     "/:shortCode",
-    cache({ ttlSeconds: 180, resType: "redirect" }),
+    cache({
+        ttlSeconds: 180,
+        resType: "redirect",
+        onCacheHit: (req) => {
+            publish("analytics.click", {
+                ipAddress: req.ip?.toString() ?? null,
+                shortUrl: req.params.shortCode?.toString() ?? "",
+                browser: req.useragent?.browser.toString() ?? null,
+                clickedAt: new Date(),
+                referrer: req.headers.referer ?? null,
+                userAgent: req.headers["user-agent"] ?? null,
+                language: req.headers["accept-language"] ?? null,
+            });
+        },
+    }),
     asyncHandler(async (req: Request, res: Response) => {
         let url = req.params.shortCode?.toString();
         let now = new Date();
@@ -112,13 +127,24 @@ RedirectRoute.get(
             return;
         }
 
-        await prismaClient.urls.update({
-            where: {
-                Id: getUrl.Id,
-            },
-            data: {
-                Clicks: { increment: 1 },
-            },
+        // THIS WILL BE MOVED TO THE MESSAGE BROKER
+        // await prismaClient.urls.update({
+        //     where: {
+        //         Id: getUrl.Id,
+        //     },
+        //     data: {
+        //         Clicks: { increment: 1 },
+        //     },
+        // });
+
+        await publish("analytics.click", {
+            shortUrl: url,
+            browser: req.useragent?.browser.toString() ?? null,
+            ipAddress: req.ip?.toString() ?? null,
+            clickedAt: new Date(),
+            referrer: req.headers.referer ?? null,
+            userAgent: req.headers["user-agent"] ?? null, // here, i'll do more on this later!
+            language: req.headers["accept-language"] ?? null,
         });
 
         if (isAfter(now, getUrl.ExpiresAt) || getUrl.IsActive == false) {
@@ -132,18 +158,19 @@ RedirectRoute.get(
         }
 
         // ADD MORE COLUMNS TO THE ANALYTICS TABLE FOR MORE PRECISE ANALYTICS
-        await prismaClient.clickLogs.create({
-            data: {
-                UserAgent: req.useragent?.browser.toString() ?? null,
-                IpAddress: req.ip?.toString() ?? null,
-                UrlId: getUrl.Id,
-            },
-            select: {
-                IpAddress: true,
-                UserAgent: true,
-                UrlId: true,
-            },
-        });
+        // THIS WILL BE MOVED TO THE MESSAGE BROKER
+        // await prismaClient.clickLogs.create({
+        //     data: {
+        //         UserAgent: req.useragent?.browser.toString() ?? null,
+        //         IpAddress: req.ip?.toString() ?? null,
+        //         UrlId: getUrl.Id,
+        //     },
+        //     select: {
+        //         IpAddress: true,
+        //         UserAgent: true,
+        //         UrlId: true,
+        //     },
+        // });
 
         res.redirect(302, getUrl.LongUrl);
     }),
