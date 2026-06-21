@@ -23,11 +23,9 @@ import {
     kDefaultSearchQuery,
     kDefaultQueryCount,
     $Types,
+    $Enums,
 } from "../../../constants/index.js";
 import humps from "humps";
-import { addDays, addHours, isAfter, add } from "date-fns";
-import { nanoid } from "nanoid";
-import { $Enums } from "../../../../generated/prisma/browser.js";
 import {
     rateLimiter,
     v1AuthMiddleware,
@@ -55,6 +53,7 @@ ProfileRoute.get(
                 Username: true,
                 Email: true,
                 EmailVerified: true,
+                IsDeleted: true,
             },
         });
 
@@ -67,9 +66,33 @@ ProfileRoute.get(
             );
             return;
         }
+        if (profile.IsDeleted) {
+            let { message, errorCode, statusCode } = HandleServerError(
+                ErrorType.UserDeactivated,
+            );
+            res.status(statusCode).json(
+                systemResponse(false, message, undefined, errorCode),
+            );
+            return;
+        }
 
         res.status(200).json(
             systemResponse(true, kDefaultSuccessMessage, profile, undefined),
+        );
+    }),
+);
+
+// ADD THAT WHEN DELETING A USER, A SOFT DELETE IS WHAT IS TO BE APPLIED NOT TO DELETE THE USERS DATA COMPLETELY
+
+ProfileRoute.get(
+    "/analytics",
+    asyncHandler(async (req: Request, res: Response) => {
+        let userId = req.store.get(kUserIdStoreKey);
+
+        // for the profile analytics, the
+
+        res.status(200).json(
+            systemResponse(true, kDefaultSuccessMessage, null, undefined),
         );
     }),
 );
