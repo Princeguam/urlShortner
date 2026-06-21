@@ -2,9 +2,8 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import asyncHandler from "express-async-handler";
 import { decodeJwtToken, systemResponse } from "../utilities/index.js";
-import { $Enums } from "../../generated/prisma/browser.js";
 import { kUserRoleStoreKey } from "../constants/strings.js";
-import { ErrorType, HandleServerError } from "../constants/index.js";
+import { ErrorType, HandleServerError, $Enums } from "../constants/index.js";
 
 export function userRolePermit() {
     return asyncHandler(

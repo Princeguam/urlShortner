@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import asyncHandler from "express-async-handler";
-import redisClient from "../utilities/redis.js";
+import { redisClient } from "../utilities/index.js";
 import {
     ErrorType,
     HandleServerError,

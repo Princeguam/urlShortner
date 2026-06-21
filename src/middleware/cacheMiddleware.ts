@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import asyncHandler from "express-async-handler";
 
-import redisClient from "../utilities/redis.js";
+import { redisClient } from "../utilities/index.js";
 import { kDefaultCacheKey, kDefaultRedirectKey } from "../constants/strings.js";
 
 type CacheType = "json" | "redirect";
@@ -9,6 +9,7 @@ type CacheType = "json" | "redirect";
 interface CacheOptions {
     ttlSeconds: number;
     resType?: CacheType;
+    onCacheHit?: (req: Request) => void; // this is to add more functionality if the cache is hit and some form of analytics need to be done
 }
 
 export function cache(option: CacheOptions) {
@@ -35,6 +36,7 @@ export function cache(option: CacheOptions) {
                     if (resType === "redirect") {
                         console.timeEnd("request");
                         console.log("CACHED NOW");
+                        option.onCacheHit?.(req);
                         res.redirect(cached);
                     } else {
                         res.json(JSON.parse(cached));
