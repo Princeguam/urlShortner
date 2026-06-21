@@ -1,7 +1,13 @@
 import jwt from "jsonwebtoken";
 import { BASE62 } from "../constants/index.js";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "MY SECRET";
+if (!process.env.JWT_SECRET) {
+    throw new Error(
+        "JWT_SECRET is undefined, generate one and declare it in .env",
+    );
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export function decodeJwtToken(token: string): {
     value?: string;
@@ -22,6 +28,7 @@ export function generateJwtToken(value: string, expiresIn?: string): string {
     if (expiresIn) {
         const options = { expiresIn };
         return jwt.sign(jwtPayload, JWT_SECRET, {
+            // a way to improve this is to add an algorithm to the jwt sigining
             expiresIn: expiresIn as any,
         });
     } else {
@@ -96,7 +103,14 @@ export function getSkippedPrismaVale(page: number, count: number): number {
     return Math.max((page - 1) * count, 0);
 }
 
+export function getReferrerSource(value: string | null): string {
+    if (!value) return "Default";
+    let referrer = new URL(value).hostname.replace("/^www./", "");
+    return referrer;
+}
+
 export * from "./paystack.js";
 export * from "./sendResponse.js";
 export * from "./prismaClient.js";
 export * from "./email.js";
+export * from "./redis.js";
