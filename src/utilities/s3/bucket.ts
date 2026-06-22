@@ -7,10 +7,18 @@ import {
     DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 
-const ENDPOINT = process.env.BACKBLAZE_ENDPOINT ?? "";
-const REGION = process.env.BACKBLAZE_REGION ?? "";
-const KEYID = process.env.BACKBLAZE_S3_APP_KEY_ID ?? "";
-const ACCESSKEY = process.env.BACKBLAZE_S3_APP_KEY ?? "";
+if (
+    !process.env.BACKBLAZE_ENDPOINT ||
+    !process.env.BACKBLAZE_REGION ||
+    !process.env.BACKBLAZE_S3_APP_KEY_ID ||
+    !process.env.BACKBLAZE_S3_APP_KEY
+) {
+    throw new Error("Backblaze credentials not being loaded");
+}
+const ENDPOINT = process.env.BACKBLAZE_ENDPOINT;
+const REGION = process.env.BACKBLAZE_REGION;
+const KEYID = process.env.BACKBLAZE_S3_APP_KEY_ID;
+const ACCESSKEY = process.env.BACKBLAZE_S3_APP_KEY;
 
 export const b2Client = new S3Client({
     endpoint: ENDPOINT,

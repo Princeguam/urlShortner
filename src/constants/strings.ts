@@ -26,8 +26,9 @@ export const BASE62 =
 export const kRateLimitKey = "rate_limit";
 export const kPaystackAPIURL = "https://api.paystack.co/";
 export const kDefaultApiVersion = "v1";
-export const kDefaultBucketName = "urlshortner-uploads";
+export const kDefaultBucketName = "urlshortner-2026-06-08T09-07-25-889Z";
 export const kFileFormDataKey = "files";
+export const kDefaultFileContentType = "application/octet-stream";
 export const kWelcomeHTMLText = (name: string) => `<h1> Welcome, ${name} </h1> 
         <p> This is the text email! </p>
         `;
