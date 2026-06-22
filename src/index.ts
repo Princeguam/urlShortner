@@ -9,6 +9,7 @@ import {
 } from "./middleware/index.js";
 import V1Route from "./routes/index.js";
 import { kDefaultApiVersion } from "./constants/strings.js";
+import { scheduledPostgresBackup } from "./jobs/index.js";
 
 const app = express();
 const PORT = process.env.PORT;
@@ -26,6 +27,8 @@ app.set("trust proxy", 1);
 app.use(userAgent());
 app.use(requestTempStore());
 app.use(expressCookieParser());
+
+scheduledPostgresBackup();
 
 app.get("/api/health", (req: Request, res: Response) => {
     res.status(200).json({
