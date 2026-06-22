@@ -16,11 +16,6 @@ services:
       - "3000" # exposes the port only internally, not to the host machine
     volumes:
       - ./src:/app/src # bind mount — changes to src/ on your machine
-        # are immediately reflected inside the container
-        # without rebuilding. hot reload picks them up.
-      - ./package.json:/app/package.json
-        # keeps package.json in sync so the container
-        # knows about dependency changes
     environment:
       NODE_ENV: development
       PORT: "${PORT:-3000}"
@@ -73,8 +68,6 @@ services:
       # "dev:worker": "nodemon src/worker.ts"
     volumes:
       - ./src:/app/src # same hot reload for the worker — change a
-        # consumer file and nodemon restarts it
-      - ./package.json:/app/package.json
     environment:
       NODE_ENV: development
       DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
