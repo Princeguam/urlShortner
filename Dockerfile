@@ -5,6 +5,9 @@ FROM node:${NODE_VERSION} AS base
 WORKDIR /app
 
 
+RUN apk add --no-cache postgresql-client
+
+
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs && \
     chown -R nodejs:nodejs /app
