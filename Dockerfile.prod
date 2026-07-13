@@ -1,0 +1,64 @@
+# gets base node version
+ARG NODE_VERSION=22-alpine
+FROM node:${NODE_VERSION} AS base  
+
+#creates a work directory
+WORKDIR /app
+
+# downloads postgres client packages like pg_dump etc
+RUN apk add --no-cache postgresql-client
+
+#create a new user and assign the user to the worker directory
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs && \
+    chown -R nodejs:nodejs /app
+
+
+# this installs the dependencies with the dev dependencies
+FROM base as build
+
+COPY package*.json ./
+
+
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --no-audit --no-fund
+
+# here creates the build .js files  with ts into the ./dist folder 
+RUN npm run build
+
+
+RUN chown -R nodejs:nodejs /app
+
+
+# this installs the dependencies without the dev dependencies
+FROM base AS deps
+
+
+COPY package*.json ./
+
+
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --omit=dev --no-audit --no-fund
+
+
+# PRODUCTION STAGE
+
+FROM base as production
+
+ENV NODE_ENV=production \ 
+    NODE_OPTIONS="--max-old-space-size=256 --no-warnings" \
+    NPM_CONFIG_LOGLEVEL=silent
+
+# this goes ahead to get the node_modules and the package.json from the deps without the dev dependencies
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/package*.json ./
+# while this gets the built ts files to js from the build stage
+COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
+
+USER nodejs
+
+EXPOSE 3000
+
+CMD ["npm", "run", "start"]
+
+

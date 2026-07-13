@@ -1,0 +1,177 @@
+# prettier-ignore
+services:
+  # ==========================================
+  # API — production
+  # ==========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: production
+    image: urlshortener-api:1.0.0
+    env_file:
+      - .env
+    container_name: urlshortener-api
+    expose:
+      - "3000" #only descriptive. the port is open to communicate internally with other services
+    environment:
+      NODE_ENV: production
+      PORT: "${PORT:-3000}"
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672"
+    # command:
+    #   ["npm", "run", "dev"] # this would likely be declared in the dockerfile so there will be no need for this in production!!
+    #   # explicit here for clarity — matches the
+    #   # Dockerfile CMD for the development stage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - urlshortener-network
+      - proxy-network
+
+  # ==========================================
+  # Worker — production
+  # ==========================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: production
+    env_file:
+      - .env
+    image: urlshortener-worker:1.0.0
+    container_name: urlshortener-worker
+    command:
+      ["npm", "run", "start:worker"]
+      # your dev worker script — likely nodemon or
+      # ts-node watching src/worker.ts for changes.
+      # add "dev:worker" to your package.json scripts:
+      # "dev:worker": "nodemon src/worker.ts"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672"
+      
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - urlshortener-network
+
+  # ==========================================
+  # PostgreSQL — production
+  # ==========================================
+  db:
+    image: postgres:18-alpine
+    container_name: urlshortener-db
+    environment:
+      POSTGRES_DB: "${DB_NAME}"
+      POSTGRES_USER: "${DB_USER}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    # CLOSING THE PORTS SINCE IT SHOULDN'T BE OPEN PUBLICLY AND ONLY OPEN WHEN I SSH IN
+
+    # ports:
+    #   - "5433:5432"
+    #    # since I have postgres running locally, I'm using a different port
+    #     # on the host to connect to postgres without colliding
+    #     # exposes postgres to the host so you can
+    #     # connect with TablePlus, DBeaver, or psql
+    #     # directly from your machine
+    expose:
+      - "${DB_PORT}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - urlshortener-network
+
+  # ==========================================
+  # Redis — production
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: urlshortener-redis
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"   # only descriptive. the port is open to communicate internally with other services
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379" # this would be dropped in production and leave only expose
+        # exposes redis to the host so you can run
+        # redis-cli locally to inspect keys, TTLs,
+        # and rate limit counters while developing
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - urlshortener-network
+
+  # ==========================================
+  # RabbitMQ — production
+  # ==========================================
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: urlshortener-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    expose:       
+      - "5672"      # this is only used internally and not exposed outside the docker container
+
+    # CLOSING THE PORTS SINCE IT SHOULDN'T BE OPEN PUBLICLY AND ONLY OPEN WHEN I SSH IN   
+    
+    # ports:
+    #   - "15672:15672" # this is left open externally, but a firewall should guard it
+    #     # management UI — open localhost:15672 in your
+    #     # browser to inspect queues, messages, consumers,
+    #     # and delivery rates in real time
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - urlshortener-network
+
+volumes:
+  postgres_data:
+    name: urlshortener-postgres-data
+  redis_data:
+    name: urlshortener-redis-data
+  rabbitmq_data:
+    name: urlshortener-rabbitmq-data
+
+networks:
+  urlshortener-network:
+    name: urlshortener-prod-network
+    driver: bridge
+  proxy-network:
+    name: shared-network
+    external: true
