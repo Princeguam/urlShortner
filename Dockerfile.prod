@@ -23,6 +23,10 @@ COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm ci --no-audit --no-fund
 
+
+# copy the entire project director ts.config included before running the build
+COPY --chown=nodejs:nodejs . .
+
 # here creates the build .js files  with ts into the ./dist folder 
 RUN npm run build
 
