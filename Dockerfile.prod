@@ -27,6 +27,9 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
 # copy the entire project director ts.config included before running the build
 COPY --chown=nodejs:nodejs . .
 
+# run prisma generate on new builds
+RUN npx prisma generate
+
 # here creates the build .js files  with ts into the ./dist folder 
 RUN npm run build
 
