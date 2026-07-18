@@ -1,4 +1,4 @@
-import "dotenv/config";
+// import "dotenv/config";
 import { startAllConsumers } from "./worker/consumer/index.js";
 
 (async () => {

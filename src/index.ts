@@ -1,4 +1,4 @@
-import "dotenv/config";
+// import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import "./utilities/redis.js";
 import cors from "cors";
