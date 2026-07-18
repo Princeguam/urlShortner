@@ -119,6 +119,7 @@ dist
 
 #PrismORM Local file
 /generated/prisma
+src/generated
 
 # Firebase cache directory
 .firebase/
