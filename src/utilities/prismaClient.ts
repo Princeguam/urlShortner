@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "../generated/prisma/client.js";
+import { PrismaClient, Prisma } from "../../generated/prisma/client.js";
 
 Prisma.Decimal.prototype.toJSON = function () {
     return this.toNumber() as any;
